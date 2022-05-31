@@ -55,6 +55,12 @@ func probeServiceOpenPorts(ch chan probeServiceResult, serviceName string) {
 		return
 	}
 
+	if err := cmd.Start(); err != nil {
+		message := fmt.Sprintf("Could not start child process: %s", err.Error())
+		ch <- probeServiceResult{err: &message}
+		return
+	}
+
 	reader := bufio.NewReader(stdout)
 
 	for {
@@ -62,6 +68,7 @@ func probeServiceOpenPorts(ch chan probeServiceResult, serviceName string) {
 		if err != nil {
 			message := fmt.Sprintf("Could not read output from child process: %s", err.Error())
 			ch <- probeServiceResult{err: &message}
+			cmd.Wait()
 			return
 		}
 
@@ -77,7 +84,7 @@ func probeServiceOpenPorts(ch chan probeServiceResult, serviceName string) {
 }
 
 func extractOpenPort(line string) *openPort {
-	regex, err := regexp.Compile(`^\s*http://(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)`)
+	regex, err := regexp.Compile(`^\s*http://(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)\s*$`)
 	if err != nil {
 		log.Panicf("Failed to extract open port information: %s", err.Error())
 	}
@@ -87,9 +94,9 @@ func extractOpenPort(line string) *openPort {
 		return nil
 	}
 
-	port, err := strconv.Atoi(matches[1])
+	port, err := strconv.Atoi(matches[2])
 	if err != nil {
-		log.Printf("WARNING: Failed to parse port: %s", line)
+		log.Printf("WARNING: Failed to parse port %s: %s", line, err.Error())
 		return nil
 	}
 
@@ -99,18 +106,22 @@ func extractOpenPort(line string) *openPort {
 // Creates a ssh tunnel to localhost:`port.port` from `port.host`:`port.port`
 func tunnelPort(port *openPort) {
 	address := fmt.Sprintf("docker@%s", port.host)
+	log.Printf("Creating tunnel from http://%s:%d to http://localhost:%d", port.host, port.port, port.port)
+
 	keyPath := getSshKeyPath()
 	portMapping := fmt.Sprintf("%d:localhost:%d", port.port, port.port)
 
-	log.Printf("Creating tunnel from %s:%d", port.host, port.port)
-	cmd := exec.Command("ssh", address, "-i", keyPath, "-L", portMapping)
+	log.Printf("Starting process ssh %s -i %s -L %s -N", address, keyPath, portMapping)
+	cmd := exec.Command("ssh", address, "-i", keyPath, "-L", portMapping, "-N")
 	err := cmd.Run()
 	if err != nil {
 		log.Printf("WARNING: Could not create tunnel from %s:%d", port.host, port.port)
 	}
+
+	log.Printf("Tunnel from %s:%d closed", port.host, port.port)
 }
 
 func getSshKeyPath() string {
 	// TODO: Override minikubeHome path with user specified path
-	return path.Join(os.Getenv("HOME"), ".minikube/machines.minikube/id_rsa")
+	return path.Join(os.Getenv("HOME"), ".minikube/machines/minikube/id_rsa")
 }
