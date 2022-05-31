@@ -12,6 +12,11 @@ the exposed service to the hosting Windows environment, making it accessible at
 localhost.
 
 Also, I needed an excuse to have a go at Go.
+[This](https://gist.github.com/kwalter94/bd5235da7a61bf84f6a0cbf7fde9cbe9) was my
+initial idea but then I had to first manually run `minikube service <service-name>`
+to expose the service within minikube's single machine cluster then run the script to
+forward to Windows. This saves me typing out 1 (or more depending on how many ports
+need to be exposed) additional command.
 
 ## Usage
 
