@@ -109,10 +109,10 @@ func tunnelPort(port *openPort) {
 	log.Printf("Creating tunnel from http://%s:%d to http://localhost:%d", port.host, port.port, port.port)
 
 	keyPath := getSshKeyPath()
-	portMapping := fmt.Sprintf("%d:localhost:%d", port.port, port.port)
+	portMapping := fmt.Sprintf("%d:0.0.0.0:%d", port.port, port.port)
 
 	log.Printf("Starting process ssh %s -i %s -L %s -N", address, keyPath, portMapping)
-	cmd := exec.Command("ssh", address, "-i", keyPath, "-L", portMapping, "-N")
+	cmd := exec.Command("ssh", address, "-o GatewayPorts=true", "-i", keyPath, "-L", portMapping, "-N")
 	err := cmd.Run()
 	if err != nil {
 		log.Printf("WARNING: Could not create tunnel from %s:%d", port.host, port.port)
